@@ -1,8 +1,9 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Search, MapPin, Star, Clock, ChevronRight, Navigation } from "lucide-react";
-import { useState } from "react";
+import { Search, MapPin, Star, Clock, ChevronRight, Navigation, Loader2 } from "lucide-react";
+import { useState, useEffect, useMemo } from "react";
+import { Geolocation } from "@capacitor/geolocation";
 
 const G: React.CSSProperties = {
   background: "var(--glass-bg)",
@@ -21,40 +22,107 @@ const categories = [
   { label: "Bakeries", emoji: "🥖" },
 ];
 
-const nearby = [
-  // Restaurants
-  { name: "Seoul Kitchen", cuisine: "Korean · BBQ", rating: 4.6, distance: "0.7 km", time: "12 min", emoji: "🇰🇷", tag: "Top Rated", tagColor: "#7C3AED", category: "Restaurants" },
-  { name: "The Spice Route", cuisine: "Indian · Curry", rating: 4.7, distance: "1.1 km", time: "18 min", emoji: "🍛", tag: null, tagColor: "", category: "Restaurants" },
-  { name: "Taco Libre", cuisine: "Mexican · Tacos", rating: 4.5, distance: "1.8 km", time: "25 min", emoji: "🌮", tag: null, tagColor: "", category: "Restaurants" },
-  { name: "Sakura Ramen", cuisine: "Japanese · Ramen", rating: 4.8, distance: "2.1 km", time: "28 min", emoji: "🍜", tag: "Popular", tagColor: "#EC4899", category: "Restaurants" },
-  // Markets
-  { name: "Lagos Fresh Market", cuisine: "West African · Groceries", rating: 4.4, distance: "0.9 km", time: "14 min", emoji: "🛒", tag: "Open Now", tagColor: "#10B981", category: "Markets" },
-  { name: "Spice Bazaar", cuisine: "Middle Eastern · Spices", rating: 4.7, distance: "1.6 km", time: "20 min", emoji: "🌶️", tag: null, tagColor: "", category: "Markets" },
-  { name: "Farmer's Co-op", cuisine: "Local · Organic Produce", rating: 4.6, distance: "2.3 km", time: "30 min", emoji: "🥦", tag: "Weekend Only", tagColor: "#F59E0B", category: "Markets" },
-  // Street Food
-  { name: "Nkemdi's Suya Spot", cuisine: "Nigerian · Suya", rating: 4.8, distance: "0.3 km", time: "8 min", emoji: "🔥", tag: "Trending", tagColor: "#FF6B2B", category: "Street Food" },
-  { name: "Pad Thai Corner", cuisine: "Thai · Noodles", rating: 4.5, distance: "0.6 km", time: "10 min", emoji: "🍜", tag: null, tagColor: "", category: "Street Food" },
-  { name: "Kebab King", cuisine: "Turkish · Kebab", rating: 4.3, distance: "1.0 km", time: "15 min", emoji: "🥙", tag: "Late Night", tagColor: "#7C3AED", category: "Street Food" },
-  // Cafés
-  { name: "Brew & Books", cuisine: "Café · Specialty Coffee", rating: 4.9, distance: "0.4 km", time: "9 min", emoji: "☕", tag: "Top Rated", tagColor: "#7C3AED", category: "Cafés" },
-  { name: "The Matcha House", cuisine: "Japanese · Tea & Pastries", rating: 4.7, distance: "1.2 km", time: "17 min", emoji: "🍵", tag: "Cozy", tagColor: "#10B981", category: "Cafés" },
-  { name: "Café Nomad", cuisine: "International · Coffee & Bites", rating: 4.5, distance: "1.9 km", time: "24 min", emoji: "🌍", tag: null, tagColor: "", category: "Cafés" },
-  // Bakeries
-  { name: "Maison du Croissant", cuisine: "French · Patisserie", rating: 4.9, distance: "1.4 km", time: "22 min", emoji: "🥐", tag: "New", tagColor: "#10B981", category: "Bakeries" },
-  { name: "Sourdough & Co.", cuisine: "Artisan · Bread & Pastries", rating: 4.6, distance: "2.0 km", time: "26 min", emoji: "🍞", tag: null, tagColor: "", category: "Bakeries" },
-  { name: "Sweet Crust", cuisine: "Nigerian · Cakes & Pastries", rating: 4.4, distance: "2.4 km", time: "32 min", emoji: "🎂", tag: "Local Fave", tagColor: "#FF6B2B", category: "Bakeries" },
-];
+const LONDON_CENTER = { lat: 51.5074, lng: -0.1278 };
+
+// Haversine formula to calculate distance between two points in km
+function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
+  const R = 6371; // Earth's radius in km
+  const dLat = (lat2 - lat1) * (Math.PI / 180);
+  const dLon = (lon2 - lon1) * (Math.PI / 180);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+interface Place {
+  id: string;
+  name: string;
+  cuisine: string;
+  rating: number;
+  distance: string;
+  time: string;
+  emoji: string;
+  tag: string | null;
+  tagColor: string | null;
+  category: string;
+  isSponsored: boolean;
+  lat: number;
+  lng: number;
+  x: string;
+  y: string;
+}
 
 export default function DiscoverPage() {
   const [activeCategory, setActiveCategory] = useState("All");
   const [query, setQuery] = useState("");
+  const [places, setPlaces] = useState<Place[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [userLocation, setUserLocation] = useState<{lat: number, lng: number} | null>(null);
 
-  const filtered = nearby.filter((place) => {
+  const handleGetDirections = (name: string, lat: number, lng: number) => {
+    const query = encodeURIComponent(`${name} ${lat},${lng}`);
+    const url = `https://www.google.com/maps/search/?api=1&query=${query}`;
+    window.open(url, "_blank");
+  };
+
+  useEffect(() => {
+    async function init() {
+      try {
+        // 1. Get Location
+        const pos = await Geolocation.getCurrentPosition().catch(() => ({
+          coords: { latitude: LONDON_CENTER.lat, longitude: LONDON_CENTER.lng }
+        }));
+        setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+
+        // 2. Fetch Places
+        const res = await fetch("/api/places");
+        const data = await res.json();
+        setPlaces(data);
+      } catch (err) {
+        console.error("Discovery Error:", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    init();
+  }, []);
+
+  const processedPlaces = useMemo(() => {
+    return places.map(p => {
+      let distStr = p.distance;
+      let numericDist = parseFloat(p.distance);
+
+      if (userLocation) {
+        const d = calculateDistance(userLocation.lat, userLocation.lng, p.lat, p.lng);
+        distStr = d < 1 ? `${(d * 1000).toFixed(0)} m` : `${d.toFixed(1)} km`;
+        numericDist = d;
+      }
+
+      return { ...p, calculatedDistance: distStr, numericDist };
+    }).sort((a, b) => {
+      if (a.isSponsored && !b.isSponsored) return -1;
+      if (!a.isSponsored && b.isSponsored) return 1;
+      return a.numericDist - b.numericDist;
+    });
+  }, [places, userLocation]);
+
+  const filtered = processedPlaces.filter((place) => {
     const matchesCategory = activeCategory === "All" || place.category === activeCategory;
     const q = query.toLowerCase();
     const matchesQuery = !q || place.name.toLowerCase().includes(q) || place.cuisine.toLowerCase().includes(q);
     return matchesCategory && matchesQuery;
   });
+
+  if (loading) {
+    return (
+      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--background)" }}>
+        <Loader2 className="animate-spin" style={{ color: "var(--accent)" }} size={32} />
+      </div>
+    );
+  }
 
   return (
     <div className="desktop-page-inner" style={{ minHeight: "100vh" }}>
@@ -66,7 +134,7 @@ export default function DiscoverPage() {
             Global Food Finder 🗺️
           </h1>
           <p style={{ fontSize: "14px", color: "var(--muted)", marginTop: "5px" }}>
-            Restaurants, markets & street food near you
+            Exploring {userLocation?.lat.toFixed(4)}, {userLocation?.lng.toFixed(4)}
           </p>
         </motion.div>
 
@@ -111,22 +179,43 @@ export default function DiscoverPage() {
         ))}
 
         {/* Pins */}
-        {[{ x: "35%", y: "42%", accent: true }, { x: "60%", y: "28%", accent: false }, { x: "20%", y: "62%", accent: false }, { x: "72%", y: "56%", accent: false }, { x: "47%", y: "72%", accent: false }].map((pin, i) => (
+        {filtered.map((place, i) => (
           <motion.div
-            key={i}
+            key={place.id}
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
-            transition={{ delay: 0.18 + i * 0.08, type: "spring", stiffness: 300 }}
-            style={{ position: "absolute", left: pin.x, top: pin.y, transform: "translate(-50%,-50%)" }}
+            transition={{ delay: 0.18 + (i % 10) * 0.04, type: "spring", stiffness: 300 }}
+            onClick={() => handleGetDirections(place.name, place.lat, place.lng)}
+            style={{ 
+              position: "absolute", 
+              left: place.x, 
+              top: place.y, 
+              transform: "translate(-50%,-50%)", 
+              zIndex: place.isSponsored ? 2 : 1,
+              cursor: "pointer" 
+            }}
           >
             <div style={{
-              width: "28px", height: "28px", borderRadius: "50%",
+              width: place.isSponsored ? "34px" : "28px", 
+              height: place.isSponsored ? "34px" : "28px", 
+              borderRadius: "50%",
               display: "flex", alignItems: "center", justifyContent: "center",
-              background: pin.accent ? "var(--accent)" : "white",
-              border: pin.accent ? "none" : "2px solid var(--accent)",
-              boxShadow: pin.accent ? "0 4px 12px rgba(255,107,43,0.4)" : "0 2px 8px rgba(0,0,0,0.2)",
+              background: place.isSponsored ? "linear-gradient(135deg, #FFD700, #B8860B)" : "white",
+              border: place.isSponsored ? "2px solid rgba(255,255,255,0.8)" : "2px solid var(--accent)",
+              boxShadow: place.isSponsored ? "0 4px 15px rgba(184,134,11,0.5)" : "0 2px 8px rgba(0,0,0,0.2)",
+              position: "relative"
             }}>
-              <MapPin size={13} style={{ color: pin.accent ? "white" : "var(--accent)" }} />
+              <span style={{ fontSize: place.isSponsored ? "18px" : "14px" }}>{place.emoji}</span>
+              {place.isSponsored && (
+                <motion.div 
+                  animate={{ scale: [1, 1.4, 1], opacity: [0.3, 0, 0.3] }}
+                  transition={{ duration: 2, repeat: Infinity }}
+                  style={{
+                    position: "absolute", inset: -4, borderRadius: "50%",
+                    border: "2px solid #FFD700"
+                  }}
+                />
+              )}
             </div>
           </motion.div>
         ))}
@@ -139,16 +228,19 @@ export default function DiscoverPage() {
           background: "rgba(0,0,0,0.42)", backdropFilter: "blur(10px)",
         }}>
           <div style={{ width: "7px", height: "7px", borderRadius: "50%", background: "#4ade80", animation: "pulse 2s infinite" }} />
-          <span style={{ color: "white", fontSize: "12px", fontWeight: 600 }}>Live Map</span>
+          <span style={{ color: "white", fontSize: "12px", fontWeight: 600 }}>Live Discovery</span>
         </div>
 
-        {/* Location btn */}
-        <button style={{
-          position: "absolute", bottom: "14px", right: "14px",
-          width: "40px", height: "40px", borderRadius: "12px",
-          background: "white", display: "flex", alignItems: "center", justifyContent: "center",
-          border: "none", boxShadow: "0 2px 12px rgba(0,0,0,0.2)", cursor: "pointer",
-        }}>
+        {/* Sync btn */}
+        <button 
+          onClick={() => window.location.reload()}
+          style={{
+            position: "absolute", bottom: "14px", right: "14px",
+            width: "40px", height: "40px", borderRadius: "12px",
+            background: "white", display: "flex", alignItems: "center", justifyContent: "center",
+            border: "none", boxShadow: "0 2px 12px rgba(0,0,0,0.2)", cursor: "pointer",
+          }}
+        >
           <Navigation size={16} style={{ color: "var(--accent)" }} />
         </button>
       </motion.div>
@@ -186,7 +278,7 @@ export default function DiscoverPage() {
       {/* ── Nearby List ── */}
       <div style={{ padding: "24px 20px 36px" }}>
         <p style={{ fontSize: "11px", fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--muted)", marginBottom: "14px" }}>
-          Nearby Spots
+          Nearby Spots ({filtered.length})
         </p>
 
         <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
@@ -198,24 +290,30 @@ export default function DiscoverPage() {
           )}
           {filtered.map((place, i) => (
             <motion.div
-              key={place.name}
+              key={place.id}
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 + i * 0.06 }}
+              transition={{ delay: i < 10 ? 0.2 + i * 0.06 : 0 }}
+              onClick={() => handleGetDirections(place.name, place.lat, place.lng)}
               style={{
                 ...G, borderRadius: "20px",
                 display: "flex", alignItems: "center", gap: "14px",
                 padding: "14px 16px", cursor: "pointer",
+                border: place.isSponsored ? "1.5px solid rgba(255, 215, 0, 0.4)" : "1px solid var(--glass-border)",
+                background: place.isSponsored ? "linear-gradient(135deg, rgba(255, 215, 0, 0.05) 0%, var(--glass-bg) 100%)" : "var(--glass-bg)",
               }}
             >
               <div style={{
                 width: "54px", height: "54px", borderRadius: "16px",
                 display: "flex", alignItems: "center", justifyContent: "center",
                 fontSize: "26px", flexShrink: 0,
-                background: "rgba(255,255,255,0.5)",
+                background: place.isSponsored ? "linear-gradient(135deg, #FFD700 0%, #B8860B 100%)" : "rgba(255,255,255,0.5)",
                 border: "1px solid var(--glass-border)",
+                boxShadow: place.isSponsored ? "0 4px 12px rgba(184,134,11,0.2)" : "none",
+                position: "relative"
               }}>
-                {place.emoji}
+                {place.isSponsored ? "✨" : place.emoji}
+                {place.isSponsored && <span style={{ position: "absolute", fontSize: "20px", bottom: -2, right: -2 }}>{place.emoji}</span>}
               </div>
 
               <div style={{ flex: 1, minWidth: 0 }}>
@@ -223,8 +321,21 @@ export default function DiscoverPage() {
                   <p style={{ fontSize: "14px", fontWeight: 700, color: "var(--foreground)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                     {place.name}
                   </p>
-                  {place.tag && (
-                    <span style={{ fontSize: "10px", fontWeight: 700, padding: "2px 8px", borderRadius: "50px", background: `${place.tagColor}18`, color: place.tagColor, flexShrink: 0 }}>
+                  {place.isSponsored && (
+                    <span style={{ fontSize: "10px", fontWeight: 700, padding: "2px 8px", borderRadius: "50px", background: "#FFD70018", color: "#B8860B", flexShrink: 0 }}>
+                      Featured
+                    </span>
+                  )}
+                  {place.tag && !place.isSponsored && (
+                    <span style={{ 
+                      fontSize: "10px", 
+                      fontWeight: 700, 
+                      padding: "2px 8px", 
+                      borderRadius: "50px", 
+                      background: place.tagColor ? `${place.tagColor}18` : undefined, 
+                      color: place.tagColor ?? undefined, 
+                      flexShrink: 0 
+                    }}>
                       {place.tag}
                     </span>
                   )}
@@ -237,7 +348,7 @@ export default function DiscoverPage() {
                     <Star size={11} fill="#F59E0B" style={{ color: "#F59E0B" }} />{place.rating}
                   </span>
                   <span style={{ display: "flex", alignItems: "center", gap: "3px", fontSize: "12px", color: "var(--muted)" }}>
-                    <MapPin size={11} />{place.distance}
+                    <MapPin size={11} />{place.calculatedDistance}
                   </span>
                   <span style={{ display: "flex", alignItems: "center", gap: "3px", fontSize: "12px", color: "var(--muted)" }}>
                     <Clock size={11} />{place.time}
@@ -250,6 +361,13 @@ export default function DiscoverPage() {
           ))}
         </div>
       </div>
+      <style jsx global>{`
+        @keyframes pulse {
+          0% { transform: scale(1); opacity: 1; }
+          50% { transform: scale(1.1); opacity: 0.7; }
+          100% { transform: scale(1); opacity: 1; }
+        }
+      `}</style>
     </div>
   );
 }

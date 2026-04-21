@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Foodipa</string>
+    <string name="title_activity_main">Foodipa</string>
+    <string name="package_name">com.foodipa.app</string>
+    <string name="custom_url_scheme">com.foodipa.app</string>
+</resources>

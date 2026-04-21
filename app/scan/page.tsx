@@ -1,11 +1,12 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { Camera, RefreshCw, Loader2, Utensils, MapPin, FlaskConical, X, ImageIcon } from "lucide-react";
+import { Camera, RefreshCw, Loader2, MapPin, FlaskConical, X, ImageIcon } from "lucide-react";
 import { useState } from "react";
 import Link from "next/link";
 import { useCamera } from "@/hooks/useCamera";
 import { haptic } from "@/hooks/useHaptics";
+import { UpgradeModal } from "@/components/upgrade-modal";
 
 const G: React.CSSProperties = {
   background: "var(--glass-bg)",
@@ -25,21 +26,37 @@ type ScanResult = {
   confidence: number;
 };
 
+import { CameraPreview, CameraPreviewHandle } from "./_components/CameraPreview";
+import { useRef } from "react";
+
 export default function ScanPage() {
-  const { photo, loading: cameraLoading, capture, clear } = useCamera();
+  const { photo, loading: cameraLoading, capture, clear, setPhoto } = useCamera();
   const [analyzing, setAnalyzing] = useState(false);
   const [result, setResult] = useState<ScanResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const cameraRef = useRef<CameraPreviewHandle>(null);
 
   async function handleCapture(source: "CAMERA" | "PHOTOS" | "PROMPT" = "PROMPT") {
     await haptic.light();
     setResult(null);
     setError(null);
+
+    if (source === "CAMERA" && cameraRef.current) {
+      cameraRef.current.capture();
+      return;
+    }
+
     const photo = await capture(source);
     if (photo) {
       await analyze(photo.dataUrl);
     }
   }
+
+  const onCameraCapture = async (dataUrl: string) => {
+    setPhoto({ dataUrl, format: "image/jpeg" });
+    await analyze(dataUrl);
+  };
 
   async function analyze(dataUrl: string) {
     setAnalyzing(true);
@@ -50,6 +67,12 @@ export default function ScanPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ imageDataUrl: dataUrl }),
       });
+      
+      if (res.status === 402) {
+        setShowUpgradeModal(true);
+        return;
+      }
+      
       const data = await res.json();
       if (data.error) throw new Error(data.error);
       setResult(data);
@@ -128,45 +151,19 @@ export default function ScanPage() {
             </div>
           ) : (
             /* Camera prompt */
+            /* Camera Viewfinder */
             <div
               style={{
                 height: "320px", borderRadius: "24px",
-                background: "linear-gradient(145deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)",
-                display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-                gap: "16px", position: "relative", overflow: "hidden",
+                overflow: "hidden", position: "relative",
                 boxShadow: "0 8px 32px rgba(0,0,0,0.25)",
               }}
             >
-              {/* Animated viewfinder corners */}
-              {[
-                { top: 24, left: 24, borderTop: "3px solid var(--accent)", borderLeft: "3px solid var(--accent)" },
-                { top: 24, right: 24, borderTop: "3px solid var(--accent)", borderRight: "3px solid var(--accent)" },
-                { bottom: 24, left: 24, borderBottom: "3px solid var(--accent)", borderLeft: "3px solid var(--accent)" },
-                { bottom: 24, right: 24, borderBottom: "3px solid var(--accent)", borderRight: "3px solid var(--accent)" },
-              ].map((style, i) => (
-                <motion.div
-                  key={i}
-                  animate={{ opacity: [0.5, 1, 0.5] }}
-                  transition={{ duration: 2, repeat: Infinity, delay: i * 0.1 }}
-                  style={{ position: "absolute", width: "28px", height: "28px", borderRadius: "4px", ...style }}
-                />
-              ))}
-
-              {/* Scan line */}
-              <motion.div
-                animate={{ top: ["20%", "80%", "20%"] }}
-                transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
-                style={{
-                  position: "absolute", left: "10%", right: "10%",
-                  height: "2px", background: "linear-gradient(90deg, transparent, var(--accent), transparent)",
-                  boxShadow: "0 0 12px var(--accent)",
-                }}
+              <CameraPreview 
+                ref={cameraRef} 
+                onCapture={onCameraCapture} 
+                onError={(msg) => setError(msg)} 
               />
-
-              <Camera size={40} style={{ color: "rgba(255,255,255,0.4)", zIndex: 1 }} />
-              <p style={{ color: "rgba(255,255,255,0.5)", fontSize: "14px", zIndex: 1, textAlign: "center", padding: "0 32px" }}>
-                Tap below to scan any dish with your camera
-              </p>
             </div>
           )}
         </motion.div>
@@ -363,6 +360,8 @@ export default function ScanPage() {
 
         <div style={{ height: "36px" }} />
       </div>
+
+      <UpgradeModal isOpen={showUpgradeModal} onClose={() => setShowUpgradeModal(false)} />
     </div>
   );
 }

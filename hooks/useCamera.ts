@@ -99,5 +99,5 @@ export function useCamera() {
 
   const clear = useCallback(() => setPhoto(null), []);
 
-  return { photo, error, loading, capture, checkPermissions, requestPermissions, clear };
+  return { photo, setPhoto, error, loading, capture, checkPermissions, requestPermissions, clear };
 }

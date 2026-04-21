@@ -55,6 +55,11 @@ model User {
   dietaryPrefs       String[]
   favCuisines        String[]
   flavorProfile      String[]
+  
+  // Subscription & AI Usage Track
+  plan               String        @default("FREE")
+  aiUsageCount       Int           @default(0)
+  
   accounts           Account[]
   sessions           Session[]
   likes              Like[]
@@ -116,4 +121,25 @@ model ScanResult {
   createdAt  DateTime @default(now())
 
   @@map("scan_results")
+}
+
+model Place {
+  id          String   @id @default(cuid())
+  name        String
+  cuisine     String
+  rating      Float
+  distance    String
+  time        String
+  category    String
+  emoji       String
+  isSponsored Boolean  @default(false)
+  lat         Float?   // Real-world latitude
+  lng         Float?   // Real-world longitude
+  x           String   // Relative X position for mock map (e.g. "35%")
+  y           String   // Relative Y position for mock map (e.g. "42%")
+  tag         String?
+  tagColor    String?
+  createdAt   DateTime @default(now())
+
+  @@map("places")
 }

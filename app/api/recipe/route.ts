@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import Groq from "groq-sdk";
+import { auth } from "@/auth";
+import { prisma } from "@/lib/prisma";
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
@@ -40,6 +42,24 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Prompt is required" }, { status: 400 });
     }
 
+    const session = await auth();
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const user = await prisma.user.findUnique({ where: { id: session.user.id } });
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+
+    // Freemium Limit Check (Limit equals 5 for FREE users)
+    if (user.plan === "FREE" && user.aiUsageCount >= 5) {
+      return NextResponse.json(
+        { error: "Monthly AI generation limit reached. Upgrade to Foodipa+ for unlimited use." },
+        { status: 402 } // Payment Required
+      );
+    }
+
     if (!process.env.GROQ_API_KEY) {
       return NextResponse.json(
         { recipe: "⚠️ GROQ_API_KEY not configured.\n\nAdd your Groq API key to .env.local:\n\nGROQ_API_KEY=your_key_here\n\nGet your free key at console.groq.com" },
@@ -58,6 +78,13 @@ export async function POST(req: NextRequest) {
     });
 
     const recipe = completion.choices[0]?.message?.content || "No recipe generated.";
+
+    if (recipe !== "No recipe generated.") {
+      await prisma.user.update({
+        where: { id: session!.user!.id },
+        data: { aiUsageCount: { increment: 1 } },
+      });
+    }
 
     return NextResponse.json({ recipe });
   } catch (err) {

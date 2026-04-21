@@ -3,6 +3,7 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { Sparkles, ChefHat, Loader2, RefreshCw, Copy, Check } from "lucide-react";
 import { useState, useRef } from "react";
+import { UpgradeModal } from "@/components/upgrade-modal";
 
 const G: React.CSSProperties = {
   background: "var(--glass-bg)",
@@ -34,6 +35,7 @@ export default function LabPage() {
   const [result, setResult] = useState("");
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const currentMode = modes.find((m) => m.id === activeMode)!;
@@ -48,6 +50,12 @@ export default function LabPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prompt, mode: activeMode }),
       });
+      
+      if (res.status === 402) {
+        setShowUpgradeModal(true);
+        return;
+      }
+      
       const data = await res.json();
       setResult(data.recipe || "No recipe generated. Please try again.");
     } catch {
@@ -238,6 +246,8 @@ export default function LabPage() {
       </div>
 
       <div style={{ height: "36px" }} />
+
+      <UpgradeModal isOpen={showUpgradeModal} onClose={() => setShowUpgradeModal(false)} />
     </div>
   );
 }

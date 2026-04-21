@@ -369,20 +369,22 @@ export default function PulsePage() {
               style={{ position: "fixed", inset: 0, zIndex: 50, background: "rgba(0,0,0,0.55)", backdropFilter: "blur(6px)" }}
             />
             <motion.div
-              initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }}
-              transition={{ type: "spring", stiffness: 320, damping: 32 }}
+              initial={{ opacity: 0, scale: 0.92, x: "-50%", y: "-40%" }}
+              animate={{ opacity: 1, scale: 1, x: "-50%", y: "-50%" }}
+              exit={{ opacity: 0, scale: 0.95, x: "-50%", y: "-45%" }}
+              transition={{ type: "spring", damping: 25, stiffness: 300 }}
               style={{
-                position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 51,
+                position: "fixed", top: "50%", left: "50%", zIndex: 51,
                 background: "var(--background)",
-                borderTop: "1px solid var(--glass-border)",
-                borderRadius: "28px 28px 0 0",
-                maxWidth: "512px", margin: "0 auto",
+                border: "1px solid var(--glass-border)",
+                borderRadius: "32px",
+                width: "90%",
+                maxWidth: "480px",
+                maxHeight: "85vh",
+                overflow: "hidden",
+                boxShadow: "0 24px 60px rgba(0,0,0,0.4)",
               }}
             >
-              {/* Handle */}
-              <div style={{ display: "flex", justifyContent: "center", padding: "14px 0 4px" }}>
-                <div style={{ width: "36px", height: "3px", borderRadius: "2px", background: "var(--muted)", opacity: 0.35 }} />
-              </div>
 
               {/* Title bar */}
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 24px 16px", borderBottom: "1px solid var(--glass-border)" }}>
