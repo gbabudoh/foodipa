@@ -1,5 +1,6 @@
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { calculateTrendingScore } from "@/lib/intelligence";
 
 export async function POST(
   _req: Request,
@@ -19,11 +20,26 @@ export async function POST(
 
     if (existing) {
       await prisma.like.delete({ where: { userId_postId: { userId, postId } } });
-      return Response.json({ liked: false });
     } else {
       await prisma.like.create({ data: { userId, postId } });
-      return Response.json({ liked: true });
     }
+
+    // ── Recalculate Trending Score ──
+    const post = await prisma.post.findUnique({
+      where: { id: postId },
+      include: { _count: { select: { likes: true } } }
+    });
+
+    if (post) {
+      const newScore = calculateTrendingScore(post._count.likes, post.createdAt);
+      await prisma.$executeRaw`
+        UPDATE posts 
+        SET "trendingScore" = ${newScore} 
+        WHERE id = ${postId}
+      `;
+    }
+
+    return Response.json({ liked: !existing });
   } catch (err) {
     console.error("[like]", err);
     return Response.json({ error: "Server error" }, { status: 500 });

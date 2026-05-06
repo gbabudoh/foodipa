@@ -16,9 +16,9 @@ export function UpgradeModal({ isOpen, onClose }: UpgradeModalProps) {
     setLoading(true);
     try {
       const res = await fetch("/api/subscription/checkout", { method: "POST" });
-      if (res.ok) {
-        // Upgrade successful, refresh the page to get the new PRO status from session/DB
-        window.location.reload();
+      const data = await res.json();
+      if (data.url) {
+        window.location.href = data.url;
       } else {
         alert("Failed to process upgrade. Please try again.");
         setLoading(false);

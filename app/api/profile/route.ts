@@ -16,13 +16,14 @@ export async function GET() {
         name: true,
         email: true,
         avatar: true,
+        banner: true,
         bio: true,
         location: true,
         dietaryPrefs: true,
         favCuisines: true,
         flavorProfile: true,
         createdAt: true,
-      },
+      } as any,
     }),
     prisma.post.count({ where: { userId: session.user.id } }),
     prisma.savedRecipe.count({ where: { userId: session.user.id } }),
@@ -43,12 +44,18 @@ export async function PATCH(req: Request) {
 
   try {
     const body = await req.json();
-    const { name, bio, location, avatarDataUrl } = body;
+    const { name, bio, location, avatarDataUrl, bannerDataUrl } = body;
 
     let avatarUrl: string | undefined;
     if (avatarDataUrl) {
       const ext = (avatarDataUrl as string).includes("image/png") ? "png" : "jpg";
       avatarUrl = await uploadDataUrl(avatarDataUrl, "avatars", `${session.user.id}.${ext}`);
+    }
+
+    let bannerUrl: string | undefined;
+    if (bannerDataUrl) {
+      const ext = (bannerDataUrl as string).includes("image/png") ? "png" : "jpg";
+      bannerUrl = await uploadDataUrl(bannerDataUrl, "avatars", `${session.user.id}_banner.${ext}`);
     }
 
     const updated = await prisma.user.update({
@@ -58,8 +65,9 @@ export async function PATCH(req: Request) {
         ...(bio !== undefined && { bio }),
         ...(location !== undefined && { location }),
         ...(avatarUrl && { avatar: avatarUrl }),
+        ...(bannerUrl && { banner: bannerUrl }),
       },
-      select: { id: true, name: true, email: true, avatar: true, bio: true, location: true },
+      select: { id: true, name: true, email: true, avatar: true, banner: true, bio: true, location: true } as any,
     });
 
     return Response.json({ ok: true, user: updated });

@@ -62,8 +62,8 @@ export async function POST(req: NextRequest) {
 
     if (!process.env.GROQ_API_KEY) {
       return NextResponse.json(
-        { recipe: "⚠️ GROQ_API_KEY not configured.\n\nAdd your Groq API key to .env.local:\n\nGROQ_API_KEY=your_key_here\n\nGet your free key at console.groq.com" },
-        { status: 200 }
+        { error: "Recipe generation service is currently unavailable (API Key missing)." },
+        { status: 500 }
       );
     }
 
@@ -90,8 +90,8 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     console.error("Groq API error:", err);
     return NextResponse.json(
-      { recipe: "⚠️ Failed to generate recipe. Check your GROQ_API_KEY and try again." },
-      { status: 200 }
+      { error: "AI failed to generate a recipe. Please try a different dish or try again later." },
+      { status: 500 }
     );
   }
 }

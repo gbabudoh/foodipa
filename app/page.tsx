@@ -3,7 +3,9 @@
 import { motion } from "framer-motion";
 import Link from "next/link";
 import { Search, TrendingUp, Flame, ArrowUpRight, ArrowRight, Sparkles, Globe, Camera, FlaskConical, BookOpen, Activity, MapPin, ChevronRight } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 
 /* ─── Shared data ────────────────────────────────────────── */
 
@@ -65,18 +67,10 @@ const features = [
   },
 ];
 
-const bentoCards = [
-  { href: "/discover", emoji: "🗺️", title: "Global Food Finder", subtitle: "Restaurants & markets near you", gradient: "linear-gradient(140deg, #FF6B2B 0%, #C94A10 100%)", glow: "rgba(255, 107, 43, 0.28)", span: "full" },
-  { href: "/lab", emoji: "🧪", title: "The Lab", subtitle: "AI-powered recipes", gradient: "linear-gradient(140deg, #7C3AED 0%, #4338CA 100%)", glow: "rgba(124, 58, 237, 0.22)", span: "half" },
-  { href: "/culture", emoji: "🌍", title: "Culture Hub", subtitle: "Food origins & traditions", gradient: "linear-gradient(140deg, #F59E0B 0%, #D97706 100%)", glow: "rgba(245, 158, 11, 0.22)", span: "half" },
-  { href: "/pulse", emoji: "📸", title: "Food Pulse", subtitle: "Share your adventures", gradient: "linear-gradient(140deg, #10B981 0%, #047857 100%)", glow: "rgba(16, 185, 129, 0.22)", span: "half" },
-  { href: "/lab?mode=fridge", emoji: "❄️", title: "Fridge Raid", subtitle: "Cook with what you have", gradient: "linear-gradient(140deg, #EC4899 0%, #9D174D 100%)", glow: "rgba(236, 72, 153, 0.22)", span: "half" },
-];
-
 const trending = [
-  { name: "Jollof Wars 2025", flags: "🇳🇬🇬🇭", tag: "#JollofWars", hot: true },
-  { name: "Korean Street Food", flags: "🇰🇷", tag: "#KStreetFood", hot: false },
-  { name: "Smash Burger Renaissance", flags: "🍔", tag: "#SmashBurger", hot: true },
+  { name: "Jollof Wars 2025", flags: ["🇳🇬", "🇬🇭"], tag: "#JollofWars", hot: true },
+  { name: "Korean Street Food", flags: ["🇰🇷"], tag: "#KStreetFood", hot: false },
+  { name: "Smash Burger Renaissance", flags: ["🍔"], tag: "#SmashBurger", hot: true },
 ];
 
 const stats = [
@@ -98,7 +92,22 @@ const G: React.CSSProperties = {
 /* ─── Page ───────────────────────────────────────────────── */
 
 export default function Home() {
+  const router = useRouter();
+  const { data: session, status } = useSession();
   const [query, setQuery] = useState("");
+
+  useEffect(() => {
+    if (status === "unauthenticated") {
+      router.push("/auth/intro");
+    } else if (
+      status === "authenticated" &&
+      session?.user &&
+      "onboardingComplete" in session.user &&
+      session.user.onboardingComplete === false
+    ) {
+      router.push("/onboarding");
+    }
+  }, [status, session, router]);
 
   return (
     <>
@@ -140,63 +149,41 @@ export default function Home() {
           </motion.div>
         </div>
 
-        {/* Bento grid */}
+        {/* Feature Grid */}
         <div style={{ padding: "0 20px" }}>
           <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.24 }} style={{ fontSize: "11px", fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--muted)", marginBottom: "14px" }}>
             Explore
           </motion.p>
 
-          <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.26 }}>
-            <Link href="/discover" style={{ display: "block", textDecoration: "none" }}>
-              <motion.div whileTap={{ scale: 0.97 }} style={{ position: "relative", overflow: "hidden", borderRadius: "24px", height: "178px", background: bentoCards[0].gradient, boxShadow: `0 8px 36px ${bentoCards[0].glow}`, cursor: "pointer" }}>
-                <div style={{ position: "absolute", top: -60, right: -60, width: 200, height: 200, borderRadius: "50%", background: "rgba(255,255,255,0.13)", pointerEvents: "none" }} />
-                <div style={{ position: "absolute", bottom: -40, right: 60, width: 130, height: 130, borderRadius: "50%", background: "rgba(255,255,255,0.07)", pointerEvents: "none" }} />
-                <div style={{ position: "absolute", inset: 0, padding: "24px", display: "flex", flexDirection: "column" }}>
-                  <span style={{ fontSize: "2.6rem", lineHeight: 1 }}>{bentoCards[0].emoji}</span>
-                  <div style={{ marginTop: "auto" }}>
-                    <h3 style={{ color: "white", fontSize: "22px", fontWeight: 800, lineHeight: 1.2, letterSpacing: "-0.3px" }}>{bentoCards[0].title}</h3>
-                    <p style={{ color: "rgba(255,255,255,0.72)", fontSize: "13px", marginTop: "5px" }}>{bentoCards[0].subtitle}</p>
-                  </div>
-                </div>
-                <div style={{ position: "absolute", bottom: 22, right: 20, display: "flex", alignItems: "center", gap: "5px", background: "rgba(255,255,255,0.2)", backdropFilter: "blur(8px)", borderRadius: "50px", padding: "7px 14px", border: "1px solid rgba(255,255,255,0.25)" }}>
-                  <span style={{ color: "white", fontSize: "12px", fontWeight: 700 }}>Explore</span>
-                  <ArrowUpRight size={12} color="white" />
-                </div>
-              </motion.div>
-            </Link>
-          </motion.div>
-
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginTop: "12px" }}>
-            {bentoCards.slice(1, 3).map((card, i) => (
-              <motion.div key={card.href} initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 + i * 0.06 }}>
-                <Link href={card.href} style={{ display: "block", textDecoration: "none" }}>
-                  <motion.div whileTap={{ scale: 0.95 }} style={{ position: "relative", overflow: "hidden", borderRadius: "20px", height: "155px", background: card.gradient, boxShadow: `0 6px 24px ${card.glow}`, cursor: "pointer" }}>
-                    <div style={{ position: "absolute", top: -35, right: -35, width: 110, height: 110, borderRadius: "50%", background: "rgba(255,255,255,0.13)", pointerEvents: "none" }} />
-                    <div style={{ position: "absolute", inset: 0, padding: "20px", display: "flex", flexDirection: "column" }}>
-                      <span style={{ fontSize: "2.1rem", lineHeight: 1 }}>{card.emoji}</span>
-                      <div style={{ marginTop: "auto" }}>
-                        <h3 style={{ color: "white", fontSize: "15px", fontWeight: 700, lineHeight: 1.25 }}>{card.title}</h3>
-                        <p style={{ color: "rgba(255,255,255,0.70)", fontSize: "12px", marginTop: "4px", lineHeight: 1.3 }}>{card.subtitle}</p>
-                      </div>
-                    </div>
-                  </motion.div>
-                </Link>
-              </motion.div>
-            ))}
-          </div>
-
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginTop: "12px" }}>
-            {bentoCards.slice(3).map((card, i) => (
-              <motion.div key={card.href} initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.38 + i * 0.06 }}>
-                <Link href={card.href} style={{ display: "block", textDecoration: "none" }}>
-                  <motion.div whileTap={{ scale: 0.95 }} style={{ position: "relative", overflow: "hidden", borderRadius: "20px", height: "136px", background: card.gradient, boxShadow: `0 6px 24px ${card.glow}`, cursor: "pointer" }}>
-                    <div style={{ position: "absolute", top: -30, right: -30, width: 90, height: 90, borderRadius: "50%", background: "rgba(255,255,255,0.13)", pointerEvents: "none" }} />
-                    <div style={{ position: "absolute", inset: 0, padding: "18px 20px", display: "flex", flexDirection: "column" }}>
-                      <span style={{ fontSize: "1.9rem", lineHeight: 1 }}>{card.emoji}</span>
-                      <div style={{ marginTop: "auto" }}>
-                        <h3 style={{ color: "white", fontSize: "14px", fontWeight: 700, lineHeight: 1.25 }}>{card.title}</h3>
-                        <p style={{ color: "rgba(255,255,255,0.70)", fontSize: "11px", marginTop: "3px", lineHeight: 1.3 }}>{card.subtitle}</p>
-                      </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+            {features.slice(0, 4).map((f, i) => (
+              <motion.div
+                key={f.href}
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.26 + i * 0.06 }}
+              >
+                <Link href={f.href} style={{ display: "block", textDecoration: "none" }}>
+                  <motion.div
+                    whileTap={{ scale: 0.95 }}
+                    style={{
+                      position: "relative",
+                      overflow: "hidden",
+                      borderRadius: "24px",
+                      height: "160px",
+                      background: f.gradient,
+                      boxShadow: `0 8px 32px ${f.glow}`,
+                      cursor: "pointer",
+                      padding: "20px",
+                      display: "flex",
+                      flexDirection: "column"
+                    }}
+                  >
+                    <div style={{ position: "absolute", top: -30, right: -30, width: 100, height: 100, borderRadius: "50%", background: "rgba(255,255,255,0.13)", pointerEvents: "none" }} />
+                    <span style={{ fontSize: "2.2rem", lineHeight: 1 }}>{f.emoji}</span>
+                    <div style={{ marginTop: "auto" }}>
+                      <h3 style={{ color: "white", fontSize: "15px", fontWeight: 800, lineHeight: 1.2, letterSpacing: "-0.2px" }}>{f.title}</h3>
+                      <p style={{ color: "rgba(255,255,255,0.75)", fontSize: "11px", marginTop: "4px", lineHeight: 1.3 }}>{f.subtitle}</p>
                     </div>
                   </motion.div>
                 </Link>
@@ -215,7 +202,11 @@ export default function Home() {
             {trending.map((item, i) => (
               <motion.div key={item.tag} initial={{ opacity: 0, x: -16 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.44 + i * 0.07 }} style={{ ...G, borderRadius: "18px", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 18px" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
-                  <span style={{ fontSize: "1.6rem" }}>{item.flags}</span>
+                  <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                    {item.flags.map((flag, idx) => (
+                      <span key={idx} style={{ fontSize: "1.6rem", lineHeight: 1 }}>{flag}</span>
+                    ))}
+                  </div>
                   <div>
                     <p style={{ fontSize: "14px", fontWeight: 600, color: "var(--foreground)" }}>{item.name}</p>
                     <p style={{ fontSize: "12px", fontWeight: 500, color: "var(--accent)", marginTop: "2px" }}>{item.tag}</p>
@@ -298,7 +289,7 @@ export default function Home() {
                     position: "relative",
                     overflow: "hidden",
                     borderRadius: "20px",
-                    height: i === 0 ? "180px" : "140px",
+                    height: "160px",
                     background: f.gradient,
                     boxShadow: `0 8px 28px ${f.glow}`,
                     cursor: "pointer",
@@ -426,7 +417,11 @@ export default function Home() {
                     style={{ ...G, borderRadius: "18px", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "18px 22px", cursor: "pointer" }}
                   >
                     <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
-                      <span style={{ fontSize: "2rem" }}>{item.flags}</span>
+                      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                        {item.flags.map((flag, idx) => (
+                          <span key={idx} style={{ fontSize: "2rem", lineHeight: 1 }}>{flag}</span>
+                        ))}
+                      </div>
                       <div>
                         <p style={{ fontSize: "15px", fontWeight: 600, color: "var(--foreground)" }}>{item.name}</p>
                         <p style={{ fontSize: "13px", fontWeight: 500, color: "var(--accent)", marginTop: "3px" }}>{item.tag}</p>

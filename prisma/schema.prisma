@@ -46,6 +46,7 @@ model User {
   name               String?
   password           String?
   avatar             String?
+  banner             String?
   bio                String?
   location           String?
   createdAt          DateTime      @default(now())
@@ -60,6 +61,9 @@ model User {
   plan               String        @default("FREE")
   aiUsageCount       Int           @default(0)
   
+  // Intelligence Layer
+  flavorDNA          Json?         @default("{}") // e.g. { "spicy": 0.8, "savory": 0.4 }
+  
   accounts           Account[]
   sessions           Session[]
   likes              Like[]
@@ -70,17 +74,18 @@ model User {
 }
 
 model Post {
-  id        String   @id @default(cuid())
-  userId    String
-  imageUrl  String?
-  caption   String
-  dishName  String?
-  location  String?
-  tags      String[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  likes     Like[]
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id            String   @id @default(cuid())
+  userId        String
+  imageUrl      String?
+  caption       String
+  dishName      String?
+  location      String?
+  tags          String[]
+  trendingScore Float    @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  likes         Like[]
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("posts")
 }

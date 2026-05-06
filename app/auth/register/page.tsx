@@ -5,6 +5,8 @@ import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { Mail, Lock, Eye, EyeOff, User, ArrowRight } from "lucide-react";
+import { useSession } from "next-auth/react";
+import { useEffect } from "react";
 import Link from "next/link";
 import { SocialAuthButtons } from "@/components/social-auth-buttons";
 
@@ -18,6 +20,14 @@ const G: React.CSSProperties = {
 
 export default function RegisterPage() {
   const router = useRouter();
+  const { status } = useSession();
+
+  useEffect(() => {
+    if (status === "authenticated") {
+      router.push("/");
+    }
+  }, [status, router]);
+
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");

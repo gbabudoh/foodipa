@@ -2,8 +2,14 @@
 
 import { motion } from "framer-motion";
 import { Search, MapPin, Star, Clock, ChevronRight, Navigation, Loader2 } from "lucide-react";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { Geolocation } from "@capacitor/geolocation";
+import dynamic from "next/dynamic";
+
+const LiveMap = dynamic(() => import("./_components/LiveMap"), { 
+  ssr: false,
+  loading: () => <div style={{ height: "100%", width: "100%", background: "#1a1a1a", display: "flex", alignItems: "center", justifyContent: "center" }}><Loader2 className="animate-spin" color="white" /></div>
+});
 
 const G: React.CSSProperties = {
   background: "var(--glass-bg)",
@@ -53,6 +59,7 @@ interface Place {
   lng: number;
   x: string;
   y: string;
+  calculatedDistance?: number;
 }
 
 export default function DiscoverPage() {
@@ -61,6 +68,9 @@ export default function DiscoverPage() {
   const [places, setPlaces] = useState<Place[]>([]);
   const [loading, setLoading] = useState(true);
   const [userLocation, setUserLocation] = useState<{lat: number, lng: number} | null>(null);
+  const [mapCenter, setMapCenter] = useState<{lat: number, lng: number} | null>(null);
+  const [showSearchArea, setShowSearchArea] = useState(false);
+  const [hoveredPlaceId, setHoveredPlaceId] = useState<string | null>(null);
 
   const handleGetDirections = (name: string, lat: number, lng: number) => {
     const query = encodeURIComponent(`${name} ${lat},${lng}`);
@@ -68,34 +78,54 @@ export default function DiscoverPage() {
     window.open(url, "_blank");
   };
 
+  const fetchPlaces = useCallback(async (lat: number, lng: number, category: string = "All") => {
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/places?lat=${lat}&lng=${lng}&category=${category}&radius=10`);
+      const data = await res.json();
+      setPlaces(data);
+    } catch (err) {
+      console.error("Discovery Error:", err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     async function init() {
       try {
-        // 1. Get Location
         const pos = await Geolocation.getCurrentPosition().catch(() => ({
           coords: { latitude: LONDON_CENTER.lat, longitude: LONDON_CENTER.lng }
         }));
-        setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
-
-        // 2. Fetch Places
-        const res = await fetch("/api/places");
-        const data = await res.json();
-        setPlaces(data);
+        const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        setUserLocation(loc);
+        setMapCenter(loc);
+        fetchPlaces(loc.lat, loc.lng, activeCategory);
       } catch (err) {
-        console.error("Discovery Error:", err);
-      } finally {
+        console.error("Init Error:", err);
         setLoading(false);
       }
     }
     init();
   }, []);
 
+  useEffect(() => {
+    if (userLocation) {
+      fetchPlaces(userLocation.lat, userLocation.lng, activeCategory);
+    }
+  }, [activeCategory, userLocation, fetchPlaces]);
+
   const processedPlaces = useMemo(() => {
     return places.map(p => {
+      // Use server-calculated distance if available (it's a number from $queryRaw)
+      const serverDist = p.calculatedDistance;
       let distStr = p.distance;
       let numericDist = parseFloat(p.distance);
 
-      if (userLocation) {
+      if (serverDist !== undefined) {
+        numericDist = serverDist;
+        distStr = serverDist < 1 ? `${(serverDist * 1000).toFixed(0)} m` : `${serverDist.toFixed(1)} km`;
+      } else if (userLocation) {
         const d = calculateDistance(userLocation.lat, userLocation.lng, p.lat, p.lng);
         distStr = d < 1 ? `${(d * 1000).toFixed(0)} m` : `${d.toFixed(1)} km`;
         numericDist = d;
@@ -164,74 +194,55 @@ export default function DiscoverPage() {
           margin: "0 20px",
           borderRadius: "24px",
           overflow: "hidden",
-          height: "210px",
+          height: "280px",
           position: "relative",
-          background: "linear-gradient(135deg, #1a3a2a 0%, #2d5c3e 50%, #1e3d2a 100%)",
           boxShadow: "0 8px 32px rgba(0,0,0,0.18)",
         }}
       >
-        {/* Grid lines */}
-        {Array.from({ length: 4 }).map((_, i) => (
-          <div key={`v${i}`} style={{ position: "absolute", top: 0, bottom: 0, left: `${(i + 1) * 20}%`, width: "1px", background: "rgba(255,255,255,0.08)" }} />
-        ))}
-        {Array.from({ length: 5 }).map((_, i) => (
-          <div key={`h${i}`} style={{ position: "absolute", left: 0, right: 0, top: `${(i + 1) * 17}%`, height: "1px", background: "rgba(255,255,255,0.08)" }} />
-        ))}
+        <LiveMap 
+          center={mapCenter ? [mapCenter.lat, mapCenter.lng] : [LONDON_CENTER.lat, LONDON_CENTER.lng]} 
+          highlightedId={hoveredPlaceId}
+          onRegionChange={(center: [number, number]) => {
+            setMapCenter({ lat: center[0], lng: center[1] });
+            setShowSearchArea(true);
+          }}
+          places={filtered.map(p => ({
+            id: p.id,
+            name: p.name,
+            cuisine: p.cuisine,
+            emoji: p.emoji,
+            isSponsored: p.isSponsored,
+            lat: p.lat,
+            lng: p.lng,
+            rating: p.rating
+          }))}
+        />
 
-        {/* Pins */}
-        {filtered.map((place, i) => (
-          <motion.div
-            key={place.id}
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            transition={{ delay: 0.18 + (i % 10) * 0.04, type: "spring", stiffness: 300 }}
-            onClick={() => handleGetDirections(place.name, place.lat, place.lng)}
-            style={{ 
-              position: "absolute", 
-              left: place.x, 
-              top: place.y, 
-              transform: "translate(-50%,-50%)", 
-              zIndex: place.isSponsored ? 2 : 1,
-              cursor: "pointer" 
-            }}
-          >
-            <div style={{
-              width: place.isSponsored ? "34px" : "28px", 
-              height: place.isSponsored ? "34px" : "28px", 
-              borderRadius: "50%",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              background: place.isSponsored ? "linear-gradient(135deg, #FFD700, #B8860B)" : "white",
-              border: place.isSponsored ? "2px solid rgba(255,255,255,0.8)" : "2px solid var(--accent)",
-              boxShadow: place.isSponsored ? "0 4px 15px rgba(184,134,11,0.5)" : "0 2px 8px rgba(0,0,0,0.2)",
-              position: "relative"
-            }}>
-              <span style={{ fontSize: place.isSponsored ? "18px" : "14px" }}>{place.emoji}</span>
-              {place.isSponsored && (
-                <motion.div 
-                  animate={{ scale: [1, 1.4, 1], opacity: [0.3, 0, 0.3] }}
-                  transition={{ duration: 2, repeat: Infinity }}
-                  style={{
-                    position: "absolute", inset: -4, borderRadius: "50%",
-                    border: "2px solid #FFD700"
-                  }}
-                />
-              )}
-            </div>
-          </motion.div>
-        ))}
+        {/* Search this area overlay */}
+        {showSearchArea && (
+          <div style={{ position: "absolute", top: "20px", left: "50%", transform: "translateX(-50%)", zIndex: 1000 }}>
+            <motion.button
+              initial={{ y: -20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              onClick={() => {
+                if (mapCenter) fetchPlaces(mapCenter.lat, mapCenter.lng, activeCategory);
+                setShowSearchArea(false);
+              }}
+              style={{
+                ...G, borderRadius: "50px", padding: "8px 20px",
+                fontSize: "12px", fontWeight: 700, color: "var(--foreground)",
+                display: "flex", alignItems: "center", gap: "8px",
+                cursor: "pointer", border: "1px solid var(--accent)",
+                boxShadow: "0 4px 15px rgba(255,107,43,0.2)"
+              }}
+            >
+              <Search size={14} style={{ color: "var(--accent)" }} />
+              Search this area
+            </motion.button>
+          </div>
+        )}
 
-        {/* Live badge */}
-        <div style={{
-          position: "absolute", top: "14px", left: "14px",
-          display: "flex", alignItems: "center", gap: "7px",
-          padding: "7px 14px", borderRadius: "50px",
-          background: "rgba(0,0,0,0.42)", backdropFilter: "blur(10px)",
-        }}>
-          <div style={{ width: "7px", height: "7px", borderRadius: "50%", background: "#4ade80", animation: "pulse 2s infinite" }} />
-          <span style={{ color: "white", fontSize: "12px", fontWeight: 600 }}>Live Discovery</span>
-        </div>
-
-        {/* Sync btn */}
+        {/* Sync btn overlay */}
         <button 
           onClick={() => window.location.reload()}
           style={{
@@ -239,6 +250,7 @@ export default function DiscoverPage() {
             width: "40px", height: "40px", borderRadius: "12px",
             background: "white", display: "flex", alignItems: "center", justifyContent: "center",
             border: "none", boxShadow: "0 2px 12px rgba(0,0,0,0.2)", cursor: "pointer",
+            zIndex: 1000
           }}
         >
           <Navigation size={16} style={{ color: "var(--accent)" }} />
@@ -292,15 +304,23 @@ export default function DiscoverPage() {
             <motion.div
               key={place.id}
               initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i < 10 ? 0.2 + i * 0.06 : 0 }}
+              animate={{ 
+                opacity: 1, 
+                y: 0,
+                scale: hoveredPlaceId === place.id ? 1.02 : 1,
+              }}
+              transition={{ delay: i < 10 ? 0.2 + i * 0.06 : 0, duration: 0.2 }}
+              onMouseEnter={() => setHoveredPlaceId(place.id)}
+              onMouseLeave={() => setHoveredPlaceId(null)}
               onClick={() => handleGetDirections(place.name, place.lat, place.lng)}
               style={{
                 ...G, borderRadius: "20px",
                 display: "flex", alignItems: "center", gap: "14px",
                 padding: "14px 16px", cursor: "pointer",
-                border: place.isSponsored ? "1.5px solid rgba(255, 215, 0, 0.4)" : "1px solid var(--glass-border)",
-                background: place.isSponsored ? "linear-gradient(135deg, rgba(255, 215, 0, 0.05) 0%, var(--glass-bg) 100%)" : "var(--glass-bg)",
+                border: place.id === hoveredPlaceId ? "1.5px solid var(--accent)" : place.isSponsored ? "1.5px solid rgba(255, 215, 0, 0.4)" : "1px solid var(--glass-border)",
+                background: place.id === hoveredPlaceId ? "rgba(255,107,43,0.05)" : place.isSponsored ? "linear-gradient(135deg, rgba(255, 215, 0, 0.05) 0%, var(--glass-bg) 100%)" : "var(--glass-bg)",
+                boxShadow: place.id === hoveredPlaceId ? "0 8px 24px rgba(255,107,43,0.15)" : "var(--glass-shadow)",
+                transition: "all 0.2s ease"
               }}
             >
               <div style={{

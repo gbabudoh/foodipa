@@ -61,35 +61,41 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   callbacks: {
     ...authConfig.callbacks,
     async jwt({ token, user, trigger }) {
+      // Initial sign-in
       if (user) {
         token.id = user.id;
-        // Credentials provider sets onboardingComplete directly.
-        // OAuth providers don't — fetch it from DB.
-        if ((user as { onboardingComplete?: boolean }).onboardingComplete !== undefined) {
-          token.onboardingComplete = (user as { onboardingComplete?: boolean }).onboardingComplete;
-        } else if (user.id) {
-          const dbUser = await prisma.user.findUnique({
-            where: { id: user.id },
-            select: { onboardingComplete: true },
-          });
-          token.onboardingComplete = dbUser?.onboardingComplete ?? false;
-        }
+        token.name = user.name;
+        token.picture = user.image;
+
+        // Fetch onboarding status directly from DB to be 100% sure,
+        // especially since providers (Credentials/OAuth) might pass stale or partial data.
+        const dbUser = await prisma.user.findUnique({
+          where: { id: user.id },
+          select: { onboardingComplete: true },
+        });
+        token.onboardingComplete = dbUser?.onboardingComplete ?? false;
       }
+
       // On update() trigger, re-fetch from DB — the only reliable source of truth
       if (trigger === "update" && token.id) {
         const fresh = await prisma.user.findUnique({
           where: { id: token.id as string },
-          select: { onboardingComplete: true },
+          select: { name: true, avatar: true, onboardingComplete: true },
         });
-        if (fresh) token.onboardingComplete = fresh.onboardingComplete;
+        if (fresh) {
+          token.name = fresh.name;
+          token.picture = fresh.avatar;
+          token.onboardingComplete = fresh.onboardingComplete;
+        }
       }
       return token;
     },
     async session({ session, token }) {
       if (token) {
-        session.user.id = token.id as string;
-        (session.user as { onboardingComplete?: boolean }).onboardingComplete =
-          token.onboardingComplete as boolean;
+        if (token.id) session.user.id = token.id;
+        if (token.name) session.user.name = token.name;
+        if (token.picture) session.user.image = token.picture;
+        session.user.onboardingComplete = token.onboardingComplete;
       }
       return session;
     },

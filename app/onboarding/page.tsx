@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { Camera, ArrowRight, ArrowLeft, Check, MapPin } from "lucide-react";
 import { useSession } from "next-auth/react";
@@ -63,7 +64,17 @@ function toggle<T>(arr: T[], item: T): T[] {
 }
 
 export default function OnboardingPage() {
-  const { data: session } = useSession();
+  const router = useRouter();
+  const { data: session, status } = useSession();
+
+  useEffect(() => {
+    if (status === "unauthenticated") {
+      router.push("/auth/intro");
+    } else if (status === "authenticated" && session?.user?.onboardingComplete) {
+      router.push("/");
+    }
+  }, [status, session, router]);
+
   const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);

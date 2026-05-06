@@ -2,7 +2,7 @@
 
 import { motion, AnimatePresence } from "framer-motion";
 import { Sparkles, ChefHat, Loader2, RefreshCw, Copy, Check } from "lucide-react";
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { UpgradeModal } from "@/components/upgrade-modal";
 
 const G: React.CSSProperties = {
@@ -37,6 +37,17 @@ export default function LabPage() {
   const [copied, setCopied] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Handle mode from URL query
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const mode = params.get("mode");
+      if (mode && modes.find(m => m.id === mode)) {
+        setActiveMode(mode);
+      }
+    }
+  }, []);
 
   const currentMode = modes.find((m) => m.id === activeMode)!;
 

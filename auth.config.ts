@@ -8,7 +8,7 @@ export const authConfig = {
   providers: [],
   callbacks: {
     authorized({ auth, request }) {
-      const { nextUrl, cookies } = request;
+      const { nextUrl } = request;
       const isLoggedIn = !!auth?.user;
       const { pathname } = nextUrl;
 
@@ -26,14 +26,12 @@ export const authConfig = {
         return Response.redirect(new URL("/auth/intro", nextUrl));
       }
 
-      // Check onboarding status — cookie is the reliable signal right after save;
-      // JWT flag covers subsequent visits once the session refreshes naturally.
-      const cookieDone = cookies.get("onboarding_done")?.value === "1";
-      const jwtDone = (auth?.user as { onboardingComplete?: boolean })?.onboardingComplete ?? false;
-      const onboardingComplete = cookieDone || jwtDone;
+      // Check onboarding status — only redirect if explicitly false (not undefined)
+      const user = auth?.user as { onboardingComplete?: boolean } | undefined;
+      const onboardingComplete = user?.onboardingComplete;
 
-      // Logged in but onboarding not done
-      if (!onboardingComplete && !isOnboarding) {
+      // Logged in but onboarding explicitly not done
+      if (onboardingComplete === false && !isOnboarding) {
         return Response.redirect(new URL("/onboarding", nextUrl));
       }
 

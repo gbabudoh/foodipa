@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowRight, ChevronRight } from "lucide-react";
+import { useSession } from "next-auth/react";
 
 const SLIDES = [
   {
@@ -87,7 +88,14 @@ function FloatingPattern({ text }: { text: string }) {
 
 export default function IntroPage() {
   const router = useRouter();
+  const { data: session, status } = useSession();
   const [idx, setIdx] = useState(0);
+
+  useEffect(() => {
+    if (status === "authenticated") {
+      router.push("/");
+    }
+  }, [status, router]);
   const [direction, setDirection] = useState(1);
   const slide = SLIDES[idx];
   const isLast = idx === SLIDES.length - 1;

@@ -24,6 +24,7 @@ type ProfileData = {
     name: string | null;
     email: string;
     avatar: string | null;
+    banner: string | null;
     bio: string | null;
     location: string | null;
     dietaryPrefs: string[];
@@ -44,16 +45,16 @@ const SETTINGS = [
   {
     section: "Account",
     items: [
-      { icon: Bell, label: "Notifications", sublabel: "Push & email alerts", href: null },
-      { icon: Shield, label: "Privacy & Security", sublabel: "Data, visibility, password", href: null },
-      { icon: Palette, label: "Appearance", sublabel: "Theme, fonts, display", href: null },
+      { icon: Bell, label: "Notifications", sublabel: "Push & email alerts", href: "/profile/notifications" },
+      { icon: Shield, label: "Privacy & Security", sublabel: "Data, visibility, password", href: "/profile/privacy" },
+      { icon: Palette, label: "Appearance", sublabel: "Theme, fonts, display", href: "/profile/appearance" },
     ],
   },
   {
     section: "Support",
     items: [
-      { icon: HelpCircle, label: "Help & FAQ", sublabel: "Get answers", href: null },
-      { icon: Star, label: "Rate Foodipa", sublabel: "Leave us a review", href: null },
+      { icon: HelpCircle, label: "Help & FAQ", sublabel: "Get answers", href: "/profile/help" },
+      { icon: Star, label: "Rate Foodipa", sublabel: "Leave us a review", href: "/profile/rate" },
     ],
   },
 ];
@@ -101,7 +102,7 @@ function Avatar({ src, name, size = 88 }: { src?: string | null; name?: string |
 }
 
 export default function ProfilePage() {
-  const { data: session } = useSession();
+  const { data: session, update } = useSession();
   const router = useRouter();
   const [data, setData] = useState<ProfileData | null>(null);
   const [editing, setEditing] = useState(false);
@@ -111,7 +112,9 @@ export default function ProfilePage() {
   const [saving, setSaving] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
   const [avatarUploading, setAvatarUploading] = useState(false);
+  const [bannerUploading, setBannerUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const bannerInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     fetch("/api/profile")
@@ -136,6 +139,7 @@ export default function ProfilePage() {
         ? { ...prev, user: { ...prev.user, name: editName, bio: editBio, location: editLocation } }
         : prev
     );
+    await update();
     setSaving(false);
     setEditing(false);
   }
@@ -156,12 +160,38 @@ export default function ProfilePage() {
       if (!res.ok) throw new Error(json.error ?? `Upload failed (${res.status})`);
       if (json.user?.avatar) {
         setData((prev) => prev ? { ...prev, user: { ...prev.user, avatar: json.user.avatar } } : prev);
+        await update();
       }
     } catch (err) {
       alert(err instanceof Error ? err.message : "Avatar upload failed");
     } finally {
       setAvatarUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  }
+
+  async function handleBannerChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setBannerUploading(true);
+    try {
+      const bannerDataUrl = await resizeImage(file, 1200);
+      const res = await fetch("/api/profile", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ bannerDataUrl }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? `Upload failed (${res.status})`);
+      if (json.user?.banner) {
+        setData((prev) => prev ? { ...prev, user: { ...prev.user, banner: json.user.banner } } : prev);
+        await update();
+      }
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Banner upload failed");
+    } finally {
+      setBannerUploading(false);
+      if (bannerInputRef.current) bannerInputRef.current.value = "";
     }
   }
 
@@ -200,15 +230,48 @@ export default function ProfilePage() {
       {/* ── Profile hero ── */}
       <div
         style={{
-          background: "linear-gradient(160deg, rgba(255,107,43,0.12) 0%, rgba(124,58,237,0.08) 100%)",
+          background: user?.banner
+            ? `url(${normalizeAvatarUrl(user.banner)}) center/cover no-repeat`
+            : "linear-gradient(160deg, rgba(255,107,43,0.12) 0%, rgba(124,58,237,0.08) 100%)",
           padding: "36px 20px 28px",
           position: "relative",
+          minHeight: "160px",
+          overflow: "hidden",
         }}
       >
+        <input
+          ref={bannerInputRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          style={{ display: "none" }}
+          onChange={handleBannerChange}
+        />
+        <motion.button
+          whileTap={{ scale: 0.9 }}
+          onClick={() => bannerInputRef.current?.click()}
+          disabled={bannerUploading}
+          style={{
+            position: "absolute", top: "12px", right: "12px",
+            width: "32px", height: "32px", borderRadius: "10px",
+            background: "rgba(0,0,0,0.25)", backdropFilter: "blur(10px)",
+            WebkitBackdropFilter: "blur(10px)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            cursor: "pointer", border: "1px solid rgba(255,255,255,0.2)",
+            zIndex: 10, padding: 0
+          }}
+          aria-label="Change banner"
+        >
+          {bannerUploading
+            ? <div style={{ width: "12px", height: "12px", borderRadius: "50%", border: "2px solid rgba(255,255,255,0.4)", borderTopColor: "white", animation: "spin 0.8s linear infinite" }} />
+            : <Camera size={14} color="white" />
+          }
+        </motion.button>
+
+        {user?.banner && <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.2)", zIndex: 1 }} />}
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
-          style={{ display: "flex", alignItems: "flex-start", gap: "18px" }}
+          style={{ display: "flex", alignItems: "flex-start", gap: "18px", position: "relative", zIndex: 2 }}
         >
           {/* Avatar */}
           <div style={{ position: "relative", flexShrink: 0 }}>
@@ -485,6 +548,7 @@ export default function ProfilePage() {
                 <motion.button
                   key={item.label}
                   whileTap={{ scale: 0.98 }}
+                  onClick={() => item.href && router.push(item.href)}
                   style={{
                     width: "100%", display: "flex", alignItems: "center", gap: "14px",
                     padding: "15px 18px",

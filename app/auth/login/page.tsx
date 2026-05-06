@@ -5,6 +5,8 @@ import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { Mail, Lock, Eye, EyeOff, ArrowRight, ArrowLeft } from "lucide-react";
+import { useSession } from "next-auth/react";
+import { useEffect } from "react";
 import Link from "next/link";
 import { SocialAuthButtons } from "@/components/social-auth-buttons";
 
@@ -25,6 +27,14 @@ function Orb({ x, y, size, color, delay }: { x: string; y: string; size: number;
 
 export default function LoginPage() {
   const router = useRouter();
+  const { status } = useSession();
+
+  useEffect(() => {
+    if (status === "authenticated") {
+      router.push("/");
+    }
+  }, [status, router]);
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPw, setShowPw] = useState(false);

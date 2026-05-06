@@ -16,7 +16,12 @@ function UserAvatar({ name, image, size = 32 }: { name?: string | null; image?: 
     .toUpperCase()
     .slice(0, 2);
 
-  const src = image?.startsWith("http") ? `/api/avatar/avatars/${image.split("/").pop()}` : image;
+  let src = image;
+  if (image && (image.startsWith("http://") || image.startsWith("https://"))) {
+    const match = image.match(/\/([^/]+\/[^/]+\.[a-z]+)$/i);
+    if (match) src = `/api/avatar/avatars/${match[1].split("/").pop()}`;
+  }
+
   if (src) {
     // eslint-disable-next-line @next/next/no-img-element
     return <img src={src} alt={name ?? "Profile"} style={{ width: size, height: size, borderRadius: "50%", objectFit: "cover", display: "block" }} />;

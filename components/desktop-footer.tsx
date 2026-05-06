@@ -79,18 +79,26 @@ export function DesktopFooter() {
             ))}
           </div>
 
-          {/* Discover */}
+          {/* Explore */}
           <div>
             <p style={{ fontSize: "11px", fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--muted)", marginBottom: "16px" }}>
               Explore
             </p>
-            {["Trending Dishes", "World Cuisines", "AI Recipes", "Fridge Raid", "Cocktail Lab"].map((label) => (
-              <p key={label} style={{ fontSize: "14px", color: "var(--foreground)", marginBottom: "10px", cursor: "pointer" }}
-                onMouseEnter={e => (e.currentTarget.style.color = "var(--accent)")}
-                onMouseLeave={e => (e.currentTarget.style.color = "var(--foreground)")}
-              >
-                {label}
-              </p>
+            {[
+              { label: "Trending Dishes", href: "/pulse" },
+              { label: "World Cuisines", href: "/culture" },
+              { label: "AI Recipes", href: "/lab" },
+              { label: "Fridge Raid", href: "/lab?mode=fridge" },
+              { label: "Cocktail Lab", href: "/lab?mode=cocktail" },
+            ].map(({ label, href }) => (
+              <Link key={href} href={href} style={{ display: "block", textDecoration: "none", marginBottom: "10px" }}>
+                <span style={{ fontSize: "14px", color: "var(--foreground)", transition: "color 0.2s" }}
+                  onMouseEnter={e => (e.currentTarget.style.color = "var(--accent)")}
+                  onMouseLeave={e => (e.currentTarget.style.color = "var(--foreground)")}
+                >
+                  {label}
+                </span>
+              </Link>
             ))}
           </div>
 
@@ -99,13 +107,21 @@ export function DesktopFooter() {
             <p style={{ fontSize: "11px", fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--muted)", marginBottom: "16px" }}>
               Company
             </p>
-            {["About", "Blog", "Careers", "Privacy Policy", "Terms of Service"].map((label) => (
-              <p key={label} style={{ fontSize: "14px", color: "var(--foreground)", marginBottom: "10px", cursor: "pointer" }}
-                onMouseEnter={e => (e.currentTarget.style.color = "var(--accent)")}
-                onMouseLeave={e => (e.currentTarget.style.color = "var(--foreground)")}
-              >
-                {label}
-              </p>
+            {[
+              { label: "About", href: "/about" },
+              { label: "Blog", href: "/blog" },
+              { label: "Careers", href: "/careers" },
+              { label: "Privacy Policy", href: "/privacy" },
+              { label: "Terms of Service", href: "/terms" },
+            ].map(({ label, href }) => (
+              <Link key={href} href={href} style={{ display: "block", textDecoration: "none", marginBottom: "10px" }}>
+                <span style={{ fontSize: "14px", color: "var(--foreground)", transition: "color 0.2s" }}
+                  onMouseEnter={e => (e.currentTarget.style.color = "var(--accent)")}
+                  onMouseLeave={e => (e.currentTarget.style.color = "var(--foreground)")}
+                >
+                  {label}
+                </span>
+              </Link>
             ))}
           </div>
         </div>

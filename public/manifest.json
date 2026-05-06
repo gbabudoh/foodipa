@@ -1,13 +1,28 @@
 {
-  "name": "Foodipa",
+  "name": "Foodipa — Your Culinary Universe",
   "short_name": "Foodipa",
-  "description": "Your Culinary Universe — AI recipes, global food finder, culture hub & social board",
+  "description": "Discover global cuisines, AI-powered recipes, and connect with fellow food adventurers.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#FFF8F0",
   "theme_color": "#FF6B2B",
   "orientation": "portrait",
+  "scope": "/",
+  "categories": ["food", "lifestyle", "travel"],
+  "screenshots": [],
   "icons": [
+    {
+      "src": "/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
     {
       "src": "/favicon.ico",
       "sizes": "any",

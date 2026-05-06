@@ -9,7 +9,10 @@ export function ThemeToggle() {
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
 
-  useEffect(() => setMounted(true), []);
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => setMounted(true));
+    return () => cancelAnimationFrame(frame);
+  }, []);
 
   if (!mounted) {
     return (
@@ -38,6 +41,7 @@ export function ThemeToggle() {
         WebkitBackdropFilter: "blur(12px)",
         border: "1px solid var(--glass-border)",
         boxShadow: "var(--card-shadow)",
+        cursor: "pointer",
       }}
       aria-label="Toggle theme"
     >
